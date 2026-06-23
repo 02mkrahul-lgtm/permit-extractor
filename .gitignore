@@ -1,0 +1,35 @@
+# Virtual environment
+.venv/
+
+# Output / test runs
+output/
+test_output*/
+*_crops/
+
+# Feedback SQLite DB (contains potentially sensitive correction data)
+*.db
+
+# VLM call log (contains prompts/responses)
+vlm_log.jsonl
+
+# Environment / secrets
+.env
+*.env
+keys.py
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.eggs/
+*.egg
+
+# Pytest
+.pytest_cache/
+.coverage
+htmlcov/
+
+# macOS
+.DS_Store

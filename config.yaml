@@ -1,0 +1,14 @@
+dpi: 300
+vlm_provider: openai
+vlm_model: gpt-4o-mini
+ocr_provider: tesseract
+run_segmentation: true
+run_vector: true
+run_ocr: true
+run_vlm: true
+run_cross_check: true
+text_layer_char_threshold: 50
+output_dir: ./output
+save_region_crops: true
+feedback_db_path: ./permit_extractor_feedback.db
+log_vlm_calls: true
