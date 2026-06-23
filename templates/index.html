@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Permit Extractor</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #f5f5f5; color: #111; }
+    .header { background: #1a1a2e; color: #fff; padding: 20px 32px; display: flex; align-items: center; gap: 12px; }
+    .header h1 { font-size: 1.3rem; font-weight: 600; }
+    .header .badge { background: #e94560; color: #fff; font-size: 0.65rem; padding: 2px 7px; border-radius: 10px; font-weight: 700; letter-spacing: 0.5px; }
+    .container { max-width: 680px; margin: 56px auto; padding: 0 16px; }
+    .card { background: #fff; border-radius: 12px; box-shadow: 0 2px 16px rgba(0,0,0,.08); padding: 36px; }
+    h2 { font-size: 1.15rem; margin-bottom: 8px; }
+    .sub { color: #666; font-size: .9rem; margin-bottom: 28px; }
+    .drop-zone { border: 2px dashed #c0c0c0; border-radius: 10px; padding: 48px 24px; text-align: center; cursor: pointer; transition: border-color .2s, background .2s; }
+    .drop-zone:hover, .drop-zone.over { border-color: #4f8ef7; background: #f0f6ff; }
+    .drop-zone input[type=file] { display: none; }
+    .drop-zone .icon { font-size: 2.5rem; margin-bottom: 12px; }
+    .drop-zone p { color: #555; font-size: .9rem; }
+    .drop-zone .filename { margin-top: 10px; font-weight: 600; color: #333; font-size: .9rem; }
+    .options { margin-top: 28px; display: grid; gap: 16px; }
+    .row { display: flex; gap: 16px; flex-wrap: wrap; }
+    .field { flex: 1; min-width: 140px; }
+    label { display: block; font-size: .8rem; font-weight: 600; color: #444; margin-bottom: 5px; text-transform: uppercase; letter-spacing: .4px; }
+    input[type=text], input[type=number], select { width: 100%; padding: 8px 10px; border: 1px solid #ddd; border-radius: 7px; font-size: .9rem; }
+    .toggle-row { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-top: 1px solid #f0f0f0; }
+    .toggle-row label { margin: 0; text-transform: none; font-weight: 400; font-size: .9rem; color: #333; cursor: pointer; }
+    input[type=checkbox] { width: 16px; height: 16px; cursor: pointer; accent-color: #4f8ef7; }
+    .btn { width: 100%; padding: 13px; background: #1a1a2e; color: #fff; border: none; border-radius: 8px; font-size: 1rem; font-weight: 600; cursor: pointer; margin-top: 24px; transition: background .15s; }
+    .btn:hover { background: #2d2d5e; }
+    .btn:disabled { background: #aaa; cursor: not-allowed; }
+    .note { margin-top: 14px; font-size: .78rem; color: #999; text-align: center; }
+  </style>
+</head>
+<body>
+<div class="header">
+  <h1>Permit Extractor</h1>
+  <span class="badge">v1</span>
+</div>
+
+<div class="container">
+  <div class="card">
+    <h2>Extract from a permit set</h2>
+    <p class="sub">Upload a multi-page PDF. The pipeline segments each sheet, extracts vector text, and optionally runs a VLM for semantic extraction.</p>
+
+    <form id="uploadForm" method="POST" action="/upload" enctype="multipart/form-data">
+      <div class="drop-zone" id="dropZone" onclick="document.getElementById('pdfInput').click()">
+        <input type="file" id="pdfInput" name="pdf" accept=".pdf">
+        <div class="icon">📄</div>
+        <p>Click to choose a PDF, or drag and drop here</p>
+        <div class="filename" id="filename"></div>
+      </div>
+
+      <div class="options">
+        <div class="row">
+          <div class="field">
+            <label>Render DPI</label>
+            <select name="dpi">
+              <option value="150">150 — fast</option>
+              <option value="200" selected>200 — balanced</option>
+              <option value="300">300 — high quality</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>VLM Model</label>
+            <select name="model">
+              <option value="gpt-4o-mini" selected>GPT-4o-mini</option>
+              <option value="gpt-4o">GPT-4o</option>
+              <option value="gpt-4.1-mini">GPT-4.1-mini</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>OpenAI API Key <span style="font-weight:400;color:#aaa">(or set OPENAI_API_KEY env var)</span></label>
+          <input type="text" name="api_key" placeholder="sk-proj-..." autocomplete="off">
+        </div>
+
+        <div class="toggle-row">
+          <input type="checkbox" name="run_vlm" id="run_vlm" checked>
+          <label for="run_vlm">Run VLM extraction (title blocks, schedules, notes)</label>
+        </div>
+      </div>
+
+      <button class="btn" type="submit" id="submitBtn">Run extraction</button>
+      <p class="note">Processing time: ~15–90s depending on PDF size and DPI.</p>
+    </form>
+  </div>
+</div>
+
+<script>
+  const input = document.getElementById('pdfInput');
+  const zone  = document.getElementById('dropZone');
+  const label = document.getElementById('filename');
+
+  input.addEventListener('change', () => {
+    if (input.files[0]) label.textContent = input.files[0].name;
+  });
+
+  zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('over'); });
+  zone.addEventListener('dragleave', () => zone.classList.remove('over'));
+  zone.addEventListener('drop', e => {
+    e.preventDefault(); zone.classList.remove('over');
+    const f = e.dataTransfer.files[0];
+    if (f && f.name.endsWith('.pdf')) {
+      const dt = new DataTransfer(); dt.items.add(f);
+      input.files = dt.files;
+      label.textContent = f.name;
+    }
+  });
+
+  document.getElementById('uploadForm').addEventListener('submit', () => {
+    const btn = document.getElementById('submitBtn');
+    btn.disabled = true; btn.textContent = 'Uploading…';
+  });
+</script>
+</body>
+</html>

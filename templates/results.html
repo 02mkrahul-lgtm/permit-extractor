@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Results — {{ job.filename }} — Permit Extractor</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #f5f5f5; color: #111; }
+    .header { background: #1a1a2e; color: #fff; padding: 18px 32px; display: flex; align-items: center; gap: 12px; }
+    .header h1 { font-size: 1.2rem; font-weight: 600; }
+    .header .badge { background: #e94560; color: #fff; font-size: .65rem; padding: 2px 7px; border-radius: 10px; font-weight: 700; }
+    .header a { margin-left: auto; color: #aac4ff; font-size: .85rem; text-decoration: none; }
+    .container { max-width: 1100px; margin: 0 auto; padding: 28px 20px 60px; }
+
+    /* Metrics bar */
+    .metrics { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 24px; }
+    .metric { background: #fff; border-radius: 10px; padding: 16px 22px; flex: 1; min-width: 130px; box-shadow: 0 1px 6px rgba(0,0,0,.07); }
+    .metric .val { font-size: 1.7rem; font-weight: 700; color: #1a1a2e; }
+    .metric .lbl { font-size: .75rem; color: #888; margin-top: 2px; text-transform: uppercase; letter-spacing: .4px; }
+
+    /* Downloads */
+    .downloads { display: flex; gap: 10px; margin-bottom: 28px; flex-wrap: wrap; }
+    .dl-btn { padding: 8px 18px; border-radius: 7px; border: 1.5px solid #1a1a2e; color: #1a1a2e; text-decoration: none; font-size: .85rem; font-weight: 600; transition: background .15s; }
+    .dl-btn:hover { background: #1a1a2e; color: #fff; }
+
+    /* Tabs */
+    .tabs { display: flex; gap: 0; border-bottom: 2px solid #e0e0e0; margin-bottom: 24px; }
+    .tab { padding: 10px 22px; cursor: pointer; font-size: .9rem; font-weight: 600; color: #888; border-bottom: 3px solid transparent; margin-bottom: -2px; }
+    .tab.active { color: #1a1a2e; border-bottom-color: #1a1a2e; }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+
+    /* Sheet inventory table */
+    .card { background: #fff; border-radius: 10px; box-shadow: 0 1px 8px rgba(0,0,0,.07); overflow: hidden; margin-bottom: 20px; }
+    table { width: 100%; border-collapse: collapse; font-size: .85rem; }
+    thead { background: #f9f9fb; }
+    th { text-align: left; padding: 11px 14px; font-size: .75rem; text-transform: uppercase; letter-spacing: .4px; color: #666; border-bottom: 1px solid #eee; }
+    td { padding: 10px 14px; border-bottom: 1px solid #f0f0f0; vertical-align: top; }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: #fafafa; }
+    .method-badge { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: .72rem; font-weight: 600; }
+    .method-badge.vector { background: #dcfce7; color: #166534; }
+    .method-badge.vlm    { background: #dbeafe; color: #1e40af; }
+    .method-badge.ocr    { background: #fef9c3; color: #854d0e; }
+    .xcheck-mismatch { color: #dc2626; font-size: .78rem; }
+    .xcheck-matched  { color: #16a34a; font-size: .78rem; }
+    .conf-low  { color: #dc2626; }
+    .conf-mid  { color: #d97706; }
+    .conf-high { color: #16a34a; }
+    .value-cell { max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: monospace; font-size: .78rem; color: #444; }
+
+    /* Filter bar */
+    .filter-bar { display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; align-items: center; }
+    .filter-bar input, .filter-bar select { padding: 7px 10px; border: 1px solid #ddd; border-radius: 7px; font-size: .85rem; }
+    .filter-bar input { flex: 1; min-width: 200px; }
+    .count { font-size: .82rem; color: #888; margin-left: auto; }
+
+    /* Markdown summary */
+    .md-body { background: #fff; border-radius: 10px; box-shadow: 0 1px 8px rgba(0,0,0,.07); padding: 32px; line-height: 1.7; }
+    .md-body h1 { font-size: 1.3rem; margin-bottom: 8px; }
+    .md-body h2 { font-size: 1.05rem; margin: 24px 0 10px; padding-bottom: 6px; border-bottom: 1px solid #eee; }
+    .md-body h3 { font-size: .95rem; margin: 18px 0 8px; }
+    .md-body table { font-size: .82rem; margin: 12px 0; }
+    .md-body th { background: #f5f5f7; }
+    .md-body code { background: #f3f4f6; padding: 1px 5px; border-radius: 4px; font-size: .82rem; }
+    .md-body pre { background: #f3f4f6; padding: 14px; border-radius: 8px; overflow-x: auto; }
+    .md-body ul, .md-body ol { padding-left: 20px; }
+    .md-body li { margin-bottom: 3px; }
+    .md-body p { margin-bottom: 10px; }
+    .md-body hr { border: none; border-top: 1px solid #eee; margin: 20px 0; }
+  </style>
+</head>
+<body>
+<div class="header">
+  <h1>Permit Extractor</h1>
+  <span class="badge">v1</span>
+  <a href="/">← New extraction</a>
+</div>
+
+<div class="container">
+  <!-- Metrics bar -->
+  <div class="metrics">
+    <div class="metric"><div class="val">{{ metrics.total_pages or 0 }}</div><div class="lbl">Pages</div></div>
+    <div class="metric"><div class="val">{{ entities|length }}</div><div class="lbl">Entities</div></div>
+    <div class="metric"><div class="val">{{ job.needs_review or 0 }}</div><div class="lbl">Needs review</div></div>
+    <div class="metric"><div class="val">{{ job.vlm_calls or 0 }}</div><div class="lbl">VLM calls</div></div>
+    <div class="metric"><div class="val">{{ "%.1f"|format(job.elapsed or 0) }}s</div><div class="lbl">Elapsed</div></div>
+  </div>
+
+  <!-- Download links -->
+  <div class="downloads">
+    <a class="dl-btn" href="/download/{{ job_id }}/json">⬇ extracted.json</a>
+    <a class="dl-btn" href="/download/{{ job_id }}/review">⬇ review.json</a>
+    <a class="dl-btn" href="/download/{{ job_id }}/summary">⬇ summary.md</a>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <div class="tab active" onclick="switchTab('entities', this)">Entities</div>
+    <div class="tab" onclick="switchTab('sheets', this)">Sheet Inventory</div>
+    <div class="tab" onclick="switchTab('summary', this)">Full Summary</div>
+  </div>
+
+  <!-- Entities tab -->
+  <div id="tab-entities" class="tab-content active">
+    <div class="filter-bar">
+      <input type="text" id="entitySearch" placeholder="Filter by type, value, sheet…" oninput="filterEntities()">
+      <select id="methodFilter" onchange="filterEntities()">
+        <option value="">All methods</option>
+        <option value="vector">Vector</option>
+        <option value="vlm">VLM</option>
+        <option value="ocr">OCR</option>
+      </select>
+      <select id="xcheckFilter" onchange="filterEntities()">
+        <option value="">All cross-check</option>
+        <option value="mismatch">Mismatch</option>
+        <option value="matched">Matched</option>
+        <option value="vlm_only">VLM only</option>
+        <option value="vector_only">Vector only</option>
+      </select>
+      <span class="count" id="entityCount">{{ entities|length }} entities</span>
+    </div>
+    <div class="card">
+      <table id="entityTable">
+        <thead>
+          <tr>
+            <th>Sheet</th><th>Pg</th><th>Entity Type</th><th>Method</th>
+            <th>Conf</th><th>Cross-check</th><th>Value</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for e in entities %}
+          <tr data-method="{{ e.method }}" data-xcheck="{{ e.cross_check }}"
+              data-text="{{ (e.type + ' ' + e.value + ' ' + e.sheet)|lower }}">
+            <td>{{ e.sheet }}</td>
+            <td>{{ e.page }}</td>
+            <td>{{ e.type }}</td>
+            <td><span class="method-badge {{ e.method }}">{{ e.method }}</span></td>
+            <td class="{% if e.confidence|float(0) < 0.5 %}conf-low{% elif e.confidence|float(0) < 0.75 %}conf-mid{% else %}conf-high{% endif %}">
+              {{ e.confidence }}</td>
+            <td class="{% if 'mismatch' in e.cross_check %}xcheck-mismatch{% elif 'matched' in e.cross_check %}xcheck-matched{% endif %}">
+              {{ e.cross_check }}</td>
+            <td class="value-cell" title="{{ e.value }}">{{ e.value }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Sheets tab -->
+  <div id="tab-sheets" class="tab-content">
+    <div class="card">
+      <table>
+        <thead>
+          <tr><th>Sheet #</th><th>Title</th><th>Discipline</th><th>Layer</th><th>Regions</th><th>Entities</th></tr>
+        </thead>
+        <tbody>
+          {% for s in sheets %}
+          <tr>
+            <td><strong>{{ s.number }}</strong></td>
+            <td>{{ s.title or '—' }}</td>
+            <td>{{ s.discipline or '—' }}</td>
+            <td><span class="method-badge {{ 'vector' if s.layer == 'vector' else 'ocr' }}">{{ s.layer }}</span></td>
+            <td style="font-size:.8rem;color:#666">{{ s.regions }}</td>
+            <td>{{ s.entity_count }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Summary tab -->
+  <div id="tab-summary" class="tab-content">
+    <div class="md-body">{{ summary_html|safe }}</div>
+  </div>
+</div>
+
+<script>
+function switchTab(name, el) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('tab-' + name).classList.add('active');
+}
+
+function filterEntities() {
+  const q     = document.getElementById('entitySearch').value.toLowerCase();
+  const meth  = document.getElementById('methodFilter').value;
+  const xchk  = document.getElementById('xcheckFilter').value;
+  const rows  = document.querySelectorAll('#entityTable tbody tr');
+  let visible = 0;
+  rows.forEach(r => {
+    const ok = (!q || r.dataset.text.includes(q))
+            && (!meth || r.dataset.method === meth)
+            && (!xchk || r.dataset.xcheck === xchk);
+    r.style.display = ok ? '' : 'none';
+    if (ok) visible++;
+  });
+  document.getElementById('entityCount').textContent = visible + ' entities';
+}
+</script>
+</body>
+</html>

@@ -10,3 +10,5 @@ anthropic>=0.111.0
 click>=8.0.0
 tenacity>=9.0.0
 pyyaml>=6.0.0
+flask>=3.0.0
+markdown2>=2.4.0
